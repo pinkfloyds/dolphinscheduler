@@ -36,9 +36,8 @@ import org.apache.dolphinscheduler.dao.entity.DqComparisonType;
 import org.apache.dolphinscheduler.dao.entity.DqRule;
 import org.apache.dolphinscheduler.dao.entity.DqRuleExecuteSql;
 import org.apache.dolphinscheduler.dao.entity.DqRuleInputEntry;
-import org.apache.dolphinscheduler.dao.entity.ProcessInstance;
 import org.apache.dolphinscheduler.dao.entity.TaskInstance;
-import org.apache.dolphinscheduler.dao.entity.UdfFunc;
+import org.apache.dolphinscheduler.dao.entity.WorkflowInstance;
 import org.apache.dolphinscheduler.plugin.task.api.DataQualityTaskExecutionContext;
 import org.apache.dolphinscheduler.plugin.task.api.K8sTaskExecutionContext;
 import org.apache.dolphinscheduler.plugin.task.api.TaskExecutionContext;
@@ -49,18 +48,16 @@ import org.apache.dolphinscheduler.plugin.task.api.model.JdbcInfo;
 import org.apache.dolphinscheduler.plugin.task.api.model.Property;
 import org.apache.dolphinscheduler.plugin.task.api.parameters.AbstractParameters;
 import org.apache.dolphinscheduler.plugin.task.api.parameters.K8sTaskParameters;
-import org.apache.dolphinscheduler.plugin.task.api.parameters.ParametersNode;
 import org.apache.dolphinscheduler.plugin.task.api.parameters.dataquality.DataQualityParameters;
 import org.apache.dolphinscheduler.plugin.task.api.parameters.resource.AbstractResourceParameters;
 import org.apache.dolphinscheduler.plugin.task.api.parameters.resource.DataSourceParameters;
 import org.apache.dolphinscheduler.plugin.task.api.parameters.resource.ResourceParametersHelper;
-import org.apache.dolphinscheduler.plugin.task.api.parameters.resource.UdfFuncParameters;
 import org.apache.dolphinscheduler.plugin.task.api.utils.JdbcUrlParser;
 import org.apache.dolphinscheduler.plugin.task.api.utils.MapUtils;
 import org.apache.dolphinscheduler.plugin.task.spark.SparkParameters;
-import org.apache.dolphinscheduler.server.master.builder.TaskExecutionContextBuilder;
 import org.apache.dolphinscheduler.server.master.config.MasterConfig;
-import org.apache.dolphinscheduler.server.master.exception.TaskExecutionContextCreateException;
+import org.apache.dolphinscheduler.server.master.engine.task.runnable.TaskExecutionContextBuilder;
+import org.apache.dolphinscheduler.server.master.engine.task.runnable.TaskExecutionContextCreateRequest;
 import org.apache.dolphinscheduler.service.expand.CuringParamsService;
 import org.apache.dolphinscheduler.service.process.ProcessService;
 import org.apache.dolphinscheduler.spi.datasource.BaseConnectionParam;
@@ -74,7 +71,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -99,27 +95,26 @@ public class TaskExecutionContextFactory {
     @Autowired
     private HikariDataSource hikariDataSource;
 
-    public TaskExecutionContext createTaskExecutionContext(TaskInstance taskInstance) throws TaskExecutionContextCreateException {
-        ProcessInstance workflowInstance = taskInstance.getProcessInstance();
+    public TaskExecutionContext createTaskExecutionContext(TaskExecutionContextCreateRequest request) {
+        TaskInstance taskInstance = request.getTaskInstance();
+        WorkflowInstance workflowInstance = request.getWorkflowInstance();
 
-        ResourceParametersHelper resources =
-                Optional.ofNullable(TaskPluginManager.getTaskChannel(taskInstance.getTaskType()))
-                        .map(taskChannel -> taskChannel.getResources(taskInstance.getTaskParams()))
-                        .orElse(null);
+        ResourceParametersHelper resources = TaskPluginManager.getTaskChannel(taskInstance.getTaskType())
+                .parseParameters(taskInstance.getTaskParams())
+                .getResources();
         setTaskResourceInfo(resources);
 
         Map<String, Property> businessParamsMap = curingParamsService.preBuildBusinessParams(workflowInstance);
 
-        AbstractParameters baseParam = TaskPluginManager.getParameters(ParametersNode.builder()
-                .taskType(taskInstance.getTaskType()).taskParams(taskInstance.getTaskParams()).build());
+        AbstractParameters baseParam =
+                TaskPluginManager.parseTaskParameters(taskInstance.getTaskType(), taskInstance.getTaskParams());
         Map<String, Property> propertyMap =
                 curingParamsService.paramParsingPreparation(taskInstance, baseParam, workflowInstance);
         TaskExecutionContext taskExecutionContext = TaskExecutionContextBuilder.get()
                 .buildWorkflowInstanceHost(masterConfig.getMasterAddress())
                 .buildTaskInstanceRelatedInfo(taskInstance)
-                .buildTaskDefinitionRelatedInfo(taskInstance.getTaskDefine())
-                .buildProcessInstanceRelatedInfo(taskInstance.getProcessInstance())
-                .buildProcessDefinitionRelatedInfo(taskInstance.getProcessDefine())
+                .buildTaskDefinitionRelatedInfo(request.getTaskDefinition())
+                .buildProcessInstanceRelatedInfo(request.getWorkflowInstance())
                 .buildResourceParametersInfo(resources)
                 .buildBusinessParamsMap(businessParamsMap)
                 .buildParamInfo(propertyMap)
@@ -130,14 +125,15 @@ public class TaskExecutionContextFactory {
         return taskExecutionContext;
     }
 
-    public void setDataQualityTaskExecutionContext(TaskExecutionContext taskExecutionContext, TaskInstance taskInstance,
+    // todo: don't merge the dq context here.
+    public void setDataQualityTaskExecutionContext(TaskExecutionContext taskExecutionContext,
+                                                   TaskInstance taskInstance,
                                                    String tenantCode) {
-        // TODO to be optimized
-        DataQualityTaskExecutionContext dataQualityTaskExecutionContext = null;
-        if (TASK_TYPE_DATA_QUALITY.equalsIgnoreCase(taskInstance.getTaskType())) {
-            dataQualityTaskExecutionContext = new DataQualityTaskExecutionContext();
-            setDataQualityTaskRelation(dataQualityTaskExecutionContext, taskInstance, tenantCode);
+        if (!TASK_TYPE_DATA_QUALITY.equalsIgnoreCase(taskInstance.getTaskType())) {
+            return;
         }
+        DataQualityTaskExecutionContext dataQualityTaskExecutionContext = new DataQualityTaskExecutionContext();
+        setDataQualityTaskRelation(dataQualityTaskExecutionContext, taskInstance, tenantCode);
         taskExecutionContext.setDataQualityTaskExecutionContext(dataQualityTaskExecutionContext);
     }
 
@@ -154,9 +150,6 @@ public class TaskExecutionContextFactory {
             switch (type) {
                 case DATASOURCE:
                     setTaskDataSourceResourceInfo(map);
-                    break;
-                case UDF:
-                    setTaskUdfFuncResourceInfo(map);
                     break;
                 default:
                     break;
@@ -181,21 +174,9 @@ public class TaskExecutionContextFactory {
         });
     }
 
-    private void setTaskUdfFuncResourceInfo(Map<Integer, AbstractResourceParameters> map) {
-        if (MapUtils.isEmpty(map)) {
-            return;
-        }
-        List<UdfFunc> udfFuncList = processService.queryUdfFunListByIds(map.keySet().toArray(new Integer[map.size()]));
-
-        udfFuncList.forEach(udfFunc -> {
-            UdfFuncParameters udfFuncParameters =
-                    JSONUtils.parseObject(JSONUtils.toJsonString(udfFunc), UdfFuncParameters.class);
-            map.put(udfFunc.getId(), udfFuncParameters);
-        });
-    }
-
     private void setDataQualityTaskRelation(DataQualityTaskExecutionContext dataQualityTaskExecutionContext,
-                                            TaskInstance taskInstance, String tenantCode) {
+                                            TaskInstance taskInstance,
+                                            String tenantCode) {
         DataQualityParameters dataQualityParameters =
                 JSONUtils.parseObject(taskInstance.getTaskParams(), DataQualityParameters.class);
         if (dataQualityParameters == null) {
@@ -409,6 +390,7 @@ public class TaskExecutionContextFactory {
     /**
      * The StatisticsValueWriterConfig will be used in DataQualityApplication that
      * writes the statistics value into dolphin scheduler datasource
+     *
      * @param dataQualityTaskExecutionContext
      */
     private void setStatisticsValueWriterConfig(DataQualityTaskExecutionContext dataQualityTaskExecutionContext) {

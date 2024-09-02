@@ -44,12 +44,12 @@ public class ApiExceptionHandler {
     @ExceptionHandler(Throwable.class)
     public Result<Object> exceptionHandler(Throwable e, HandlerMethod hm) {
         ApiException ce = hm.getMethodAnnotation(ApiException.class);
-        log.error("Meet en unknown exception: ", e);
+        log.error("Meet an unknown exception: ", e);
         if (ce == null) {
             return Result.errorWithArgs(Status.INTERNAL_SERVER_ERROR_ARGS, e.getMessage());
         }
         Status st = ce.value();
-        return Result.error(st);
+        return new Result<>(st.getCode(), st.getMsg() + ":" + e.getMessage());
     }
 
 }

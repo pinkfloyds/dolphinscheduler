@@ -23,8 +23,8 @@ import org.apache.dolphinscheduler.api.audit.enums.AuditType;
 import org.apache.dolphinscheduler.api.audit.operator.BaseAuditOperator;
 import org.apache.dolphinscheduler.common.enums.AuditOperationType;
 import org.apache.dolphinscheduler.dao.entity.AuditLog;
-import org.apache.dolphinscheduler.dao.entity.ProcessInstance;
-import org.apache.dolphinscheduler.dao.mapper.ProcessInstanceMapper;
+import org.apache.dolphinscheduler.dao.entity.WorkflowInstance;
+import org.apache.dolphinscheduler.dao.mapper.WorkflowInstanceMapper;
 
 import org.apache.commons.lang3.math.NumberUtils;
 
@@ -38,7 +38,7 @@ import org.springframework.stereotype.Service;
 public class ProcessInstanceAuditOperatorImpl extends BaseAuditOperator {
 
     @Autowired
-    private ProcessInstanceMapper processInstanceMapper;
+    private WorkflowInstanceMapper workflowInstanceMapper;
 
     @Override
     public void modifyAuditOperationType(AuditType auditType, Map<String, Object> paramsMap,
@@ -48,23 +48,23 @@ public class ProcessInstanceAuditOperatorImpl extends BaseAuditOperator {
     }
 
     @Override
-    protected void setObjectByParma(String[] paramNameArr, Map<String, Object> paramsMap,
+    protected void setObjectByParam(String[] paramNameArr, Map<String, Object> paramsMap,
                                     List<AuditLog> auditLogList) {
         if (paramNameArr[0].equals(AuditLogConstants.PROCESS_INSTANCE_IDS)) {
-            super.setObjectByParmaArr(paramNameArr, paramsMap, auditLogList);
+            super.setObjectByParamArr(paramNameArr, paramsMap, auditLogList);
         } else {
-            super.setObjectByParma(paramNameArr, paramsMap, auditLogList);
+            super.setObjectByParam(paramNameArr, paramsMap, auditLogList);
         }
     }
 
     @Override
-    protected String getObjectNameFromReturnIdentity(Object identity) {
+    protected String getObjectNameFromIdentity(Object identity) {
         int objId = NumberUtils.toInt(identity.toString(), -1);
         if (objId == -1) {
             return "";
         }
 
-        ProcessInstance obj = processInstanceMapper.queryDetailById(objId);
+        WorkflowInstance obj = workflowInstanceMapper.queryDetailById(objId);
         return obj == null ? "" : obj.getName();
     }
 }

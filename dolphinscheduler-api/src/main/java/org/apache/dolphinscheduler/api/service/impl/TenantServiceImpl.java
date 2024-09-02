@@ -30,16 +30,16 @@ import org.apache.dolphinscheduler.api.utils.PageInfo;
 import org.apache.dolphinscheduler.api.utils.RegexUtils;
 import org.apache.dolphinscheduler.common.constants.Constants;
 import org.apache.dolphinscheduler.common.enums.AuthorizationType;
-import org.apache.dolphinscheduler.dao.entity.ProcessInstance;
 import org.apache.dolphinscheduler.dao.entity.Queue;
 import org.apache.dolphinscheduler.dao.entity.Schedule;
 import org.apache.dolphinscheduler.dao.entity.Tenant;
 import org.apache.dolphinscheduler.dao.entity.User;
-import org.apache.dolphinscheduler.dao.mapper.ProcessInstanceMapper;
+import org.apache.dolphinscheduler.dao.entity.WorkflowInstance;
 import org.apache.dolphinscheduler.dao.mapper.ScheduleMapper;
 import org.apache.dolphinscheduler.dao.mapper.TenantMapper;
 import org.apache.dolphinscheduler.dao.mapper.UserMapper;
-import org.apache.dolphinscheduler.plugin.storage.api.StorageOperate;
+import org.apache.dolphinscheduler.dao.mapper.WorkflowInstanceMapper;
+import org.apache.dolphinscheduler.plugin.storage.api.StorageOperator;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -61,9 +61,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
-/**
- * tenant service impl
- */
 @Service
 @Slf4j
 public class TenantServiceImpl extends BaseServiceImpl implements TenantService {
@@ -72,7 +69,7 @@ public class TenantServiceImpl extends BaseServiceImpl implements TenantService 
     private TenantMapper tenantMapper;
 
     @Autowired
-    private ProcessInstanceMapper processInstanceMapper;
+    private WorkflowInstanceMapper workflowInstanceMapper;
 
     @Autowired
     private ScheduleMapper scheduleMapper;
@@ -84,7 +81,7 @@ public class TenantServiceImpl extends BaseServiceImpl implements TenantService 
     private QueueService queueService;
 
     @Autowired(required = false)
-    private StorageOperate storageOperate;
+    private StorageOperator storageOperator;
 
     /**
      * Check the tenant new object valid or not
@@ -136,14 +133,13 @@ public class TenantServiceImpl extends BaseServiceImpl implements TenantService 
      * @param queueId queue id
      * @param desc description
      * @return create result code
-     * @throws Exception exception
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Tenant createTenant(User loginUser,
                                String tenantCode,
                                int queueId,
-                               String desc) throws Exception {
+                               String desc) {
         if (!canOperatorPermissions(loginUser, null, AuthorizationType.TENANT, TENANT_CREATE)) {
             throw new ServiceException(Status.USER_NO_OPERATION_PERM);
         }
@@ -154,7 +150,6 @@ public class TenantServiceImpl extends BaseServiceImpl implements TenantService 
         createTenantValid(tenant);
         tenantMapper.insert(tenant);
 
-        storageOperate.createTenantDirIfNotExists(tenantCode);
         return tenant;
     }
 
@@ -181,7 +176,7 @@ public class TenantServiceImpl extends BaseServiceImpl implements TenantService 
     }
 
     /**
-     * updateProcessInstance tenant
+     * updateWorkflowInstance tenant
      *
      * @param loginUser login user
      * @param id tenant id
@@ -209,11 +204,6 @@ public class TenantServiceImpl extends BaseServiceImpl implements TenantService 
         updateTenantValid(existsTenant, updateTenant);
 
         updateTenant.setCreateTime(existsTenant.getCreateTime());
-        // updateProcessInstance tenant
-        // if the tenant code is modified, the original resource needs to be copied to the new tenant.
-        if (!Objects.equals(existsTenant.getTenantCode(), updateTenant.getTenantCode())) {
-            storageOperate.createTenantDirIfNotExists(tenantCode);
-        }
         int update = tenantMapper.updateById(updateTenant);
         if (update <= 0) {
             throw new ServiceException(Status.UPDATE_TENANT_ERROR);
@@ -241,9 +231,9 @@ public class TenantServiceImpl extends BaseServiceImpl implements TenantService 
             throw new ServiceException(Status.TENANT_NOT_EXIST);
         }
 
-        List<ProcessInstance> processInstances = getProcessInstancesByTenant(tenant);
-        if (CollectionUtils.isNotEmpty(processInstances)) {
-            throw new ServiceException(Status.DELETE_TENANT_BY_ID_FAIL, processInstances.size());
+        List<WorkflowInstance> workflowInstances = getWorkflowInstancesByTenant(tenant);
+        if (CollectionUtils.isNotEmpty(workflowInstances)) {
+            throw new ServiceException(Status.DELETE_TENANT_BY_ID_FAIL, workflowInstances.size());
         }
 
         List<Schedule> schedules = scheduleMapper.queryScheduleListByTenant(tenant.getTenantCode());
@@ -261,12 +251,11 @@ public class TenantServiceImpl extends BaseServiceImpl implements TenantService 
             throw new ServiceException(Status.DELETE_TENANT_BY_ID_ERROR);
         }
 
-        processInstanceMapper.updateProcessInstanceByTenantCode(tenant.getTenantCode(), Constants.DEFAULT);
-        storageOperate.deleteTenant(tenant.getTenantCode());
+        workflowInstanceMapper.updateProcessInstanceByTenantCode(tenant.getTenantCode(), Constants.DEFAULT);
     }
 
-    private List<ProcessInstance> getProcessInstancesByTenant(Tenant tenant) {
-        return processInstanceMapper.queryByTenantCodeAndStatus(tenant.getTenantCode(),
+    private List<WorkflowInstance> getWorkflowInstancesByTenant(Tenant tenant) {
+        return workflowInstanceMapper.queryByTenantCodeAndStatus(tenant.getTenantCode(),
                 org.apache.dolphinscheduler.service.utils.Constants.NOT_TERMINATED_STATES);
     }
 

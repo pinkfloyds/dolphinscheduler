@@ -204,11 +204,6 @@ public class TaskExecutionContext implements Serializable {
     private String workerGroup;
 
     /**
-     * delay execution time.
-     */
-    private int delayTime;
-
-    /**
      * current execution status
      */
     private TaskExecutionStatus currentExecutionStatus;
@@ -262,12 +257,11 @@ public class TaskExecutionContext implements Serializable {
 
     private boolean logBufferEnable;
 
-    /**
-     * dispatch fail times
-     */
     private int dispatchFailTimes;
 
-    public void increaseDispatchFailTimes() {
-        this.dispatchFailTimes++;
+    private boolean failover;
+
+    public int increaseDispatchFailTimes() {
+        return ++dispatchFailTimes;
     }
 }

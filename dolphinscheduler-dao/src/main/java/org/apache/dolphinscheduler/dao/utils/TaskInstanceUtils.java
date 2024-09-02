@@ -49,22 +49,19 @@ public class TaskInstanceUtils {
         target.setLogPath(source.getLogPath());
         target.setRetryTimes(source.getRetryTimes());
         target.setAlertFlag(source.getAlertFlag());
-        target.setProcessInstance(source.getProcessInstance());
+        target.setWorkflowInstance(source.getWorkflowInstance());
         target.setProcessDefine(source.getProcessDefine());
         target.setTaskDefine(source.getTaskDefine());
         target.setPid(source.getPid());
         target.setAppLink(source.getAppLink());
         target.setFlag(source.getFlag());
-        target.setDependency(source.getDependency());
         // todo: we need to cpoy the task params and then copy switchDependency, since the setSwitchDependency rely on
         // task params, this is really a very bad practice.
         target.setTaskParams(source.getTaskParams());
-        target.setSwitchDependency(source.getSwitchDependency());
         target.setDuration(source.getDuration());
         target.setMaxRetryTimes(source.getMaxRetryTimes());
         target.setRetryInterval(source.getRetryInterval());
         target.setTaskInstancePriority(source.getTaskInstancePriority());
-        target.setDependentResult(source.getDependentResult());
         target.setWorkerGroup(source.getWorkerGroup());
         target.setEnvironmentCode(source.getEnvironmentCode());
         target.setEnvironmentConfig(source.getEnvironmentConfig());

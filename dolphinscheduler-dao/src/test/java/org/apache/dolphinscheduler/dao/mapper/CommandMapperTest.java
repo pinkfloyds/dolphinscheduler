@@ -19,7 +19,6 @@ package org.apache.dolphinscheduler.dao.mapper;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import org.apache.dolphinscheduler.common.constants.Constants;
 import org.apache.dolphinscheduler.common.enums.CommandType;
 import org.apache.dolphinscheduler.common.enums.FailureStrategy;
 import org.apache.dolphinscheduler.common.enums.Flag;
@@ -31,7 +30,8 @@ import org.apache.dolphinscheduler.common.utils.DateUtils;
 import org.apache.dolphinscheduler.dao.BaseDaoTest;
 import org.apache.dolphinscheduler.dao.entity.Command;
 import org.apache.dolphinscheduler.dao.entity.CommandCount;
-import org.apache.dolphinscheduler.dao.entity.ProcessDefinition;
+import org.apache.dolphinscheduler.dao.entity.WorkflowDefinition;
+import org.apache.dolphinscheduler.dao.utils.WorkerGroupUtils;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -42,6 +42,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.common.collect.Lists;
 
 /**
@@ -53,7 +56,7 @@ public class CommandMapperTest extends BaseDaoTest {
     private CommandMapper commandMapper;
 
     @Autowired
-    private ProcessDefinitionMapper processDefinitionMapper;
+    private WorkflowDefinitionMapper workflowDefinitionMapper;
 
     /**
      * test insert
@@ -62,6 +65,18 @@ public class CommandMapperTest extends BaseDaoTest {
     public void testInsert() {
         Command command = createCommand();
         Assertions.assertTrue(command.getId() > 0);
+    }
+
+    @Test
+    public void testQueryCommandPageByIds() {
+        Command expectedCommand = createCommand();
+        Page<Command> page = new Page<>(1, 10);
+        IPage<Command> commandIPage = commandMapper.queryCommandPageByIds(page,
+                Lists.newArrayList(expectedCommand.getProcessDefinitionCode()));
+        List<Command> commandList = commandIPage.getRecords();
+        assertThat(commandList).isNotEmpty();
+        assertThat(commandIPage.getTotal()).isEqualTo(1);
+        assertThat(commandList.get(0).getId()).isEqualTo(expectedCommand.getId());
     }
 
     /**
@@ -131,11 +146,11 @@ public class CommandMapperTest extends BaseDaoTest {
     @Test
     public void testGetOneToRun() {
 
-        ProcessDefinition processDefinition = createProcessDefinition();
+        WorkflowDefinition workflowDefinition = createProcessDefinition();
 
-        createCommand(CommandType.START_PROCESS, processDefinition.getCode());
+        createCommand(CommandType.START_PROCESS, workflowDefinition.getCode());
 
-        List<Command> actualCommand = commandMapper.queryCommandPage(1, 0);
+        List<Command> actualCommand = commandMapper.selectList(new QueryWrapper<>());
 
         Assertions.assertNotNull(actualCommand);
     }
@@ -147,16 +162,16 @@ public class CommandMapperTest extends BaseDaoTest {
     public void testCountCommandState() {
         Integer count = 10;
 
-        ProcessDefinition processDefinition = createProcessDefinition();
+        WorkflowDefinition workflowDefinition = createProcessDefinition();
 
-        createCommandMap(count, CommandType.START_PROCESS, processDefinition.getCode());
+        createCommandMap(count, CommandType.START_PROCESS, workflowDefinition.getCode());
 
         Date startTime = DateUtils.stringToDate("2019-12-29 00:10:00");
 
         Date endTime = DateUtils.stringToDate("2019-12-29 23:59:59");
 
         List<CommandCount> actualCommandCounts = commandMapper.countCommandState(startTime, endTime,
-                Lists.newArrayList(processDefinition.getProjectCode()));
+                Lists.newArrayList(workflowDefinition.getProjectCode()));
 
         Assertions.assertTrue(actualCommandCounts.size() >= 1);
     }
@@ -228,19 +243,19 @@ public class CommandMapperTest extends BaseDaoTest {
      *
      * @return process definition
      */
-    private ProcessDefinition createProcessDefinition() {
-        ProcessDefinition processDefinition = new ProcessDefinition();
-        processDefinition.setCode(1L);
-        processDefinition.setReleaseState(ReleaseState.ONLINE);
-        processDefinition.setName("ut test");
-        processDefinition.setProjectCode(1L);
-        processDefinition.setFlag(Flag.YES);
-        processDefinition.setCreateTime(new Date());
-        processDefinition.setUpdateTime(new Date());
+    private WorkflowDefinition createProcessDefinition() {
+        WorkflowDefinition workflowDefinition = new WorkflowDefinition();
+        workflowDefinition.setCode(1L);
+        workflowDefinition.setReleaseState(ReleaseState.ONLINE);
+        workflowDefinition.setName("ut test");
+        workflowDefinition.setProjectCode(1L);
+        workflowDefinition.setFlag(Flag.YES);
+        workflowDefinition.setCreateTime(new Date());
+        workflowDefinition.setUpdateTime(new Date());
 
-        processDefinitionMapper.insert(processDefinition);
+        workflowDefinitionMapper.insert(workflowDefinition);
 
-        return processDefinition;
+        return workflowDefinition;
     }
 
     /**
@@ -288,7 +303,7 @@ public class CommandMapperTest extends BaseDaoTest {
         command.setProcessInstancePriority(Priority.MEDIUM);
         command.setStartTime(DateUtils.stringToDate("2019-12-29 10:10:00"));
         command.setUpdateTime(DateUtils.stringToDate("2019-12-29 10:10:00"));
-        command.setWorkerGroup(Constants.DEFAULT_WORKER_GROUP);
+        command.setWorkerGroup(WorkerGroupUtils.getDefaultWorkerGroup());
         command.setProcessInstanceId(0);
         command.setProcessDefinitionVersion(0);
         commandMapper.insert(command);
