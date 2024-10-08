@@ -47,7 +47,7 @@ import org.apache.dolphinscheduler.plugin.task.dq.rule.RuleManager;
 import org.apache.dolphinscheduler.plugin.task.dq.rule.parameter.DataQualityConfiguration;
 import org.apache.dolphinscheduler.plugin.task.dq.utils.SparkArgsUtils;
 
-import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.time.LocalDateTime;
@@ -138,8 +138,8 @@ public class DataQualityTask extends AbstractYarnTask {
         inputParameter.put(RULE_NAME, ArgsUtils.wrapperSingleQuotes(dataQualityTaskExecutionContext.getRuleName()));
         inputParameter.put(CREATE_TIME, ArgsUtils.wrapperSingleQuotes(now));
         inputParameter.put(UPDATE_TIME, ArgsUtils.wrapperSingleQuotes(now));
-        inputParameter.put(PROCESS_DEFINITION_ID, String.valueOf(dqTaskExecutionContext.getProcessDefineId()));
-        inputParameter.put(PROCESS_INSTANCE_ID, String.valueOf(dqTaskExecutionContext.getProcessInstanceId()));
+        inputParameter.put(PROCESS_DEFINITION_ID, String.valueOf(dqTaskExecutionContext.getWorkflowDefinitionId()));
+        inputParameter.put(PROCESS_INSTANCE_ID, String.valueOf(dqTaskExecutionContext.getWorkflowInstanceId()));
         inputParameter.put(TASK_INSTANCE_ID, String.valueOf(dqTaskExecutionContext.getTaskInstanceId()));
 
         if (StringUtils.isEmpty(inputParameter.get(DATA_TIME))) {
@@ -154,8 +154,8 @@ public class DataQualityTask extends AbstractYarnTask {
         if (StringUtils.isNotEmpty(dataQualityTaskExecutionContext.getHdfsPath())) {
             inputParameter.put(ERROR_OUTPUT_PATH,
                     dataQualityTaskExecutionContext.getHdfsPath()
-                            + SLASH + dqTaskExecutionContext.getProcessDefineId()
-                            + UNDERLINE + dqTaskExecutionContext.getProcessInstanceId()
+                            + SLASH + dqTaskExecutionContext.getWorkflowDefinitionId()
+                            + UNDERLINE + dqTaskExecutionContext.getWorkflowInstanceId()
                             + UNDERLINE + dqTaskExecutionContext.getTaskName());
         } else {
             inputParameter.put(ERROR_OUTPUT_PATH, "");

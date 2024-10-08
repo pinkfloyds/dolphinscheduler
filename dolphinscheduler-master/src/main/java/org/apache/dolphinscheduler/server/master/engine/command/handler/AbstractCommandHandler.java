@@ -91,15 +91,14 @@ public abstract class AbstractCommandHandler implements ICommandHandler {
 
     protected void assembleWorkflowInstanceLifecycleListeners(
                                                               final WorkflowExecuteContextBuilder workflowExecuteContextBuilder) {
-        workflowExecuteContextBuilder.setWorkflowInstanceLifecycleListeners(
-                workflowExecuteContextBuilder.getWorkflowInstanceLifecycleListeners());
+        workflowExecuteContextBuilder.setWorkflowInstanceLifecycleListeners(workflowLifecycleListeners);
     }
 
     protected void assembleWorkflowDefinition(
                                               final WorkflowExecuteContextBuilder workflowExecuteContextBuilder) {
         final Command command = workflowExecuteContextBuilder.getCommand();
-        final long workflowDefinitionCode = command.getProcessDefinitionCode();
-        final int workflowDefinitionVersion = command.getProcessDefinitionVersion();
+        final long workflowDefinitionCode = command.getWorkflowDefinitionCode();
+        final int workflowDefinitionVersion = command.getWorkflowDefinitionVersion();
 
         final WorkflowDefinition workflowDefinition = workflowDefinitionLogDao.queryByDefinitionCodeAndVersion(
                 workflowDefinitionCode,

@@ -16,9 +16,26 @@
   - macOS 安装`pstree`
   - Fedora/Red/Hat/CentOS/Ubuntu/Debian 安装`psmisc`
 
-> **_注意:_** DolphinScheduler 本身不依赖 Hadoop、Hive、Spark，但如果你运行的任务需要依赖他们，就需要有对应的环境支持
+## 下载插件依赖
+
+从 3.3.0 版本开始，二进制包不再提供插件依赖，需要用户自行下载。插件依赖包下载地址：[插件依赖包](https://repo.maven.apache.org/maven2/org/apache/dolphinscheduler)
+你也可以执行以下命令来安装插件依赖:
+
+```shell
+bash ./bin/install-plugins.sh 3.3.0
+```
+
+通常你并不需要所有的连接器插件，可以通过配置 `conf/plugins_config` 来指定你所需要的插件，例如，你只需要 `dolphinscheduler-task-shell` 插件，那么您可以修改配置文件如下：
+
+```
+--task-plugins--
+dolphinscheduler-task-shell
+--end--
+```
 
 ## 准备 DolphinScheduler 启动环境
+
+> **_注意:_** DolphinScheduler 本身不依赖 Hadoop、Hive、Spark，但如果你运行的任务需要依赖他们，就需要有对应的环境支持
 
 ### 配置用户免密及权限
 
@@ -33,7 +50,7 @@ echo "dolphinscheduler" | passwd --stdin dolphinscheduler
 
 # 配置 sudo 免密
 sed -i '$adolphinscheduler  ALL=(ALL)  NOPASSWD: NOPASSWD: ALL' /etc/sudoers
-sed -i 's/Defaults    requirett/#Defaults    requirett/g' /etc/sudoers
+sed -i 's/Defaults    requiretty/#Defaults    requiretty/g' /etc/sudoers
 
 # 修改目录权限，使得部署用户对二进制包解压后的 apache-dolphinscheduler-*-bin 目录有操作权限
 chown -R dolphinscheduler:dolphinscheduler apache-dolphinscheduler-*-bin
@@ -43,16 +60,11 @@ chmod -R 755 apache-dolphinscheduler-*-bin
 > **_注意:_**
 >
 > - 因为任务执行服务是以 `sudo -u {linux-user} -i` 切换不同 linux 用户的方式来实现多租户运行作业，所以部署用户需要有 sudo 权限，而且是免密的。初学习者不理解的话，完全可以暂时忽略这一点
-> - 如果发现 `/etc/sudoers` 文件中有 "Defaults requirett" 这行，也请注释掉
+> - 如果发现 `/etc/sudoers` 文件中有 "Defaults requiretty" 这行，也请注释掉
 
-### 启动 zookeeper
+### 准备 zookeeper
 
-进入 zookeeper 的安装目录，将 `zoo_sample.cfg` 配置文件复制到 `conf/zoo.cfg`，并将 `conf/zoo.cfg` 中 dataDir 中的值改成 `dataDir=./tmp/zookeeper`
-
-```shell
-# 启动 zookeeper
-./bin/zkServer.sh start
-```
+如果使用 Zookeeper 作为注册中心，需要先安装 Zookeeper 并启动。
 
 ## 修改相关配置
 
@@ -109,7 +121,7 @@ export PATH=$HADOOP_HOME/bin:$SPARK_HOME/bin:$PYTHON_LAUNCHER:$JAVA_HOME/bin:$HI
 
 ## 初始化数据库
 
-请参考 [数据源配置] `伪分布式/分布式安装初始化数据库` 创建并初始化数据库
+请参考 [数据源配置](datasource-setting.md) `伪分布式/分布式安装初始化数据库` 创建并初始化数据库
 
 ## 启动 DolphinScheduler
 

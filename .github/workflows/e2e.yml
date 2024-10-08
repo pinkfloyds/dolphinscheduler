@@ -56,6 +56,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
+      - name: Maximize runner space
+        uses: ./.github/actions/maximize-build-space
+        with:
+          root-reserve-mb: 30720
+          temp-reserve-mb: 10240
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          remove-docker-images: 'true'
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
       - name: Sanity Check
         uses: ./.github/actions/sanity-check
         with:
@@ -69,11 +82,9 @@ jobs:
       - name: Build Image
         run: |
           ./mvnw -B clean install \
-          -Dmaven.test.skip \
-          -Dmaven.javadoc.skip \
+          -Dmaven.test.skip=true \
           -Dspotless.skip=true \
-          -Pdocker,release -Ddocker.tag=ci \
-          -pl dolphinscheduler-standalone-server -am
+          -Pdocker,staging -Ddocker.tag=ci
       - name: Export Docker Images
         run: |
           docker save apache/dolphinscheduler-standalone-server:ci -o /tmp/standalone-image.tar \
@@ -81,7 +92,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         name: Upload Docker Images
         with:
-          name: standalone-image
+          name: standalone-image-e2e
           path: /tmp/standalone-image.tar
           retention-days: 1
   e2e:
@@ -92,45 +103,45 @@ jobs:
     strategy:
       matrix:
         case:
-          - name: Tenant
+          - name: TenantE2ETest
             class: org.apache.dolphinscheduler.e2e.cases.TenantE2ETest
-          - name: User
+          - name: UserE2ETest
             class: org.apache.dolphinscheduler.e2e.cases.UserE2ETest
-          - name: WorkerGroup
+          - name: WorkerGroupE2ETest
             class: org.apache.dolphinscheduler.e2e.cases.WorkerGroupE2ETest
-          - name: Project
+          - name: ProjectE2ETest
             class: org.apache.dolphinscheduler.e2e.cases.ProjectE2ETest
-          - name: Queue
+          - name: QueueE2ETest
             class: org.apache.dolphinscheduler.e2e.cases.QueueE2ETest
-          - name: Environment
+          - name: EnvironmentE2ETest
             class: org.apache.dolphinscheduler.e2e.cases.EnvironmentE2ETest
-          - name: Cluster
+          - name: ClusterE2ETest
             class: org.apache.dolphinscheduler.e2e.cases.ClusterE2ETest
-          - name: Token
+          - name: TokenE2ETest
             class: org.apache.dolphinscheduler.e2e.cases.TokenE2ETest
-          - name: Workflow
+          - name: WorkflowE2ETest
             class: org.apache.dolphinscheduler.e2e.cases.WorkflowE2ETest
-          - name: WorkflowHttp
+          - name: WorkflowHttpTaskE2ETest
             class: org.apache.dolphinscheduler.e2e.cases.WorkflowHttpTaskE2ETest
-          - name: WorkflowJava
+          - name: WorkflowJavaTaskE2ETest
             class: org.apache.dolphinscheduler.e2e.cases.WorkflowJavaTaskE2ETest
 #          - name: WorkflowForSwitch
 #            class: org.apache.dolphinscheduler.e2e.cases.WorkflowSwitchE2ETest
-          - name: FileManage
+          - name: FileManageE2ETest
             class: org.apache.dolphinscheduler.e2e.cases.FileManageE2ETest
-          - name: MysqlDataSource
+          - name: MysqlDataSourceE2ETest
             class: org.apache.dolphinscheduler.e2e.cases.MysqlDataSourceE2ETest
-          - name: ClickhouseDataSource
+          - name: ClickhouseDataSourceE2ETest
             class: org.apache.dolphinscheduler.e2e.cases.ClickhouseDataSourceE2ETest
-          - name: PostgresDataSource
+          - name: PostgresDataSourceE2ETest
             class: org.apache.dolphinscheduler.e2e.cases.PostgresDataSourceE2ETest
           - name: ShellTaskE2ETest
             class: org.apache.dolphinscheduler.e2e.cases.tasks.ShellTaskE2ETest
           - name: PythonTaskE2ETest
             class: org.apache.dolphinscheduler.e2e.cases.tasks.PythonTaskE2ETest
-          - name: SqlServerDataSource
+          - name: SqlServerDataSourceE2ETest
             class: org.apache.dolphinscheduler.e2e.cases.SqlServerDataSourceE2ETest
-          - name: HiveDataSource
+          - name: HiveDataSourceE2ETest
             class: org.apache.dolphinscheduler.e2e.cases.HiveDataSourceE2ETest
     env:
       RECORDING_PATH: /tmp/recording-${{ matrix.case.name }}
@@ -156,7 +167,7 @@ jobs:
       - uses: actions/download-artifact@v4
         name: Download Docker Images
         with:
-          name: standalone-image
+          name: standalone-image-e2e
           path: /tmp
       - name: Load Docker Images
         run: |
